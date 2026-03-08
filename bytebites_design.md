@@ -1,4 +1,4 @@
-%% ByteBites UML - Mermaid class diagram
+## ByteBites UML - Mermaid class diagram
 ```mermaid
 classDiagram
     class Customer {
