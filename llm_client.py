@@ -3,14 +3,22 @@
 import os
 from typing import Iterable, List, Tuple
 
+from dotenv import load_dotenv
+
 GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+
+def resolve_gemini_api_key() -> str:
+    """Resolve Gemini API key from environment, loading .env first."""
+    load_dotenv()
+    return os.getenv("GEMINI_API_KEY", "")
 
 
 class GeminiClient:
     """Small wrapper around the Google Gen AI SDK for content generation."""
 
     def __init__(self, model_name: str = GEMINI_MODEL_NAME) -> None:
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = resolve_gemini_api_key()
         if not api_key:
             raise RuntimeError(
                 "Missing GEMINI_API_KEY environment variable. "
