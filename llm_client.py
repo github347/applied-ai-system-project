@@ -1,37 +1,15 @@
-"""
-Gemini client wrapper used by Applied Ai System Project for ByteBites.
-
-Handles:
-- Configuring the Gemini client from the GEMINI_API_KEY environment variable
-- Naive "generation only" answers over the full docs corpus (Phase 0)
-- RAG style answers that use only retrieved snippets (Phase 2)
-
-Experiment with:
-- Prompt wording
-- Refusal conditions
-- How strictly the model is instructed to use only the provided context
-"""
+"""Gemini client wrapper for ByteBites RAG queries."""
 
 import os
-import google.generativeai as genai
+from typing import Iterable, List, Tuple
 
-# Central place to update the model name if needed.
-# You can swap this for a different Gemini model in the future.
-GEMINI_MODEL_NAME = "gemini-2.5-flash"
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 class GeminiClient:
-    """
-    Simple wrapper around the Gemini model.
+    """Small wrapper around the Google Gen AI SDK for content generation."""
 
-    Usage:
-        client = GeminiClient()
-        answer = client.naive_answer_over_full_docs(query, all_text)
-        # or
-        answer = client.answer_from_snippets(query, snippets)
-    """
-
-    def __init__(self):
+    def __init__(self, model_name: str = GEMINI_MODEL_NAME) -> None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise RuntimeError(
@@ -39,73 +17,60 @@ class GeminiClient:
                 "Set it in your shell or .env file to enable LLM features."
             )
 
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        try:
+            from google import genai
+        except Exception as exc:
+            raise RuntimeError(
+                "Google Gen AI SDK is not installed. "
+                "Install it with: pip install google-genai"
+            ) from exc
 
-    # -----------------------------------------------------------
-    # Phase 0: naive generation over full docs
-    # -----------------------------------------------------------
+        self._client = genai.Client(api_key=api_key)
+        self.model_name = model_name
 
-    def naive_answer_over_full_docs(self, query, all_text):
-        # We ignore all_text and send a generic prompt instead
-        prompt = f"""
-    You are a documentation assistant. 
-    Answer this developer question: {query}
-    """
-        response = self.model.generate_content(prompt)
-        return (response.text or "").strip()
+    def _extract_text(self, response) -> str:
+        text = getattr(response, "text", None)
+        if text:
+            return text.strip()
 
-    # -----------------------------------------------------------
-    # Phase 2: RAG style generation over retrieved snippets
-    # -----------------------------------------------------------
+        candidates = getattr(response, "candidates", []) or []
+        if candidates:
+            parts = getattr(candidates[0], "content", None)
+            parts = getattr(parts, "parts", []) if parts else []
+            chunks = [getattr(part, "text", "") for part in parts if getattr(part, "text", "")]
+            if chunks:
+                return "\n".join(chunks).strip()
 
-    def answer_from_snippets(self, query, snippets):
-        """
-        Phase 2:
-        Generate an answer using only the retrieved snippets.
+        return ""
 
-        snippets: list of (filename, text) tuples selected by DocuBot.retrieve
+    def generate(self, prompt: str) -> str:
+        response = self._client.models.generate_content(
+            model=self.model_name,
+            contents=prompt,
+        )
+        return self._extract_text(response)
 
-        The prompt:
-        - Shows each snippet with its filename
-        - Instructs the model to rely only on these snippets
-        - Requires an explicit "I do not know" refusal when needed
-        """
+    def answer_from_snippets(self, query: str, snippets: Iterable[Tuple[str, str]]) -> str:
+        """Answer a user query by grounding on retrieved snippets only."""
+        snippets_list: List[Tuple[str, str]] = list(snippets)
+        if not snippets_list:
+            return "I do not know based on the data I have."
 
-        if not snippets:
-            return "I do not know based on the docs I have."
-
-        context_blocks = []
-        for filename, text in snippets:
-            block = f"File: {filename}\n{text}\n"
-            context_blocks.append(block)
-
+        context_blocks = [f"Source: {source}\n{text}" for source, text in snippets_list]
         context = "\n\n".join(context_blocks)
 
         prompt = f"""
-You are a cautious documentation assistant helping developers understand a codebase.
+You are ByteBites assistant. Answer using ONLY the provided context snippets.
+If context is insufficient, reply exactly: "I do not know based on the data I have."
 
-You will receive:
-- A developer question
-- A small set of snippets from project files
-
-Your job:
-- Answer the question using only the information in the snippets.
-- If the snippets do not provide enough evidence, refuse to guess.
-
-Snippets:
-{context}
-
-Developer question:
+Question:
 {query}
 
-Rules:
-- Use only the information in the snippets. Do not invent new functions,
-  endpoints, or configuration values.
-- If the snippets are not enough to answer confidently, reply exactly:
-  "I do not know based on the docs I have."
-- When you do answer, briefly mention which files you relied on.
-"""
+Context snippets:
+{context}
 
-        response = self.model.generate_content(prompt)
-        return (response.text or "").strip()
+Output requirements:
+- Give a concise answer.
+- Then list the sources you used in a short line starting with "Sources:".
+"""
+        return self.generate(prompt).strip()

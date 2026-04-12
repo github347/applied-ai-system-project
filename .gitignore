@@ -2,3 +2,7 @@
 __pycache__/models.cpython-312.pyc
 __pycache__/test_bytebites.cpython-312-pytest-9.0.2.pyc
 .DS_Store
+.env
+.env.*
+__pycache__/
+*.pyc
