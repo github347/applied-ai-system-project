@@ -14,6 +14,17 @@ def seed_data() -> tuple[Collection, Customer, Transaction]:
             Food(id=2, name="Large Soda", price=Decimal("2.49"), category="Drinks", popularity=77),
             Food(id=3, name="Chocolate Cake", price=Decimal("4.25"), category="Desserts", popularity=65),
             Food(id=4, name="Fries", price=Decimal("3.49"), category="Sides", popularity=80),
+            Food(id=5, name="Grilled Chicken Sandwich", price=Decimal("7.49"), category="Entree", popularity=82),
+            Food(id=6, name="Iced Tea", price=Decimal("2.29"), category="Drinks", popularity=70),
+            Food(id=7, name="Vanilla Milkshake", price=Decimal("3.99"), category="Drinks", popularity=88),
+            Food(id=8, name="Onion Rings", price=Decimal("3.79"), category="Sides", popularity=73),
+            Food(id=9, name="Caesar Salad", price=Decimal("5.99"), category="Sides", popularity=68),
+            Food(id=10, name="BBQ Ribs", price=Decimal("9.99"), category="Entree", popularity=90),
+            Food(id=11, name="Cheesecake Slice", price=Decimal("4.75"), category="Desserts", popularity=79),
+            Food(id=12, name="Mozzarella Sticks", price=Decimal("4.49"), category="Sides", popularity=76),
+            Food(id=13, name="Strawberry Smoothie", price=Decimal("4.99"), category="Drinks", popularity=83),
+            Food(id=14, name="Fish Tacos", price=Decimal("8.49"), category="Entree", popularity=74),
+            Food(id=15, name="Apple Pie", price=Decimal("3.89"), category="Desserts", popularity=72),
         ]
     )
     customer = Customer(id=1, name="Alice")

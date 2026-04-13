@@ -22,9 +22,43 @@ class RetrievalResult:
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
 
+_SYNONYMS: Dict[str, set[str]] = {
+    "order": {"orders", "ordered", "purchase", "purchases", "transaction", "transactions", "items"},
+    "today": {"current", "now", "latest", "recent", "transaction"},
+    "bought": {"purchase", "purchases", "ordered", "order", "transaction"},
+    "menu": {"items", "food", "foods"},
+    "price": {"cost", "total"},
+}
+
+_ORDER_INTENT_TOKENS = {
+    "order",
+    "orders",
+    "ordered",
+    "purchase",
+    "purchases",
+    "bought",
+    "transaction",
+    "transactions",
+    "history",
+}
+
 
 def _tokenize(text: str) -> set[str]:
     return {token.lower() for token in _TOKEN_RE.findall(text or "")}
+
+
+def _expand_tokens(tokens: set[str]) -> set[str]:
+    expanded = set(tokens)
+    for token in list(tokens):
+        expanded.update(_SYNONYMS.get(token, set()))
+    return expanded
+
+
+def _intent_flags(query_tokens: set[str]) -> Dict[str, bool]:
+    return {
+        "order": bool(query_tokens.intersection(_ORDER_INTENT_TOKENS)),
+        "today": "today" in query_tokens,
+    }
 
 
 class RuntimeRetriever:
@@ -100,9 +134,26 @@ class RuntimeRetriever:
         if not query_tokens:
             return []
 
+        expanded_query_tokens = _expand_tokens(query_tokens)
+        flags = _intent_flags(query_tokens)
+
         scored: List[RetrievalResult] = []
         for chunk in corpus:
-            score = len(query_tokens.intersection(_tokenize(chunk.text)))
+            chunk_tokens = _tokenize(chunk.text)
+
+            exact_matches = len(query_tokens.intersection(chunk_tokens))
+            expanded_matches = len(expanded_query_tokens.intersection(chunk_tokens)) - exact_matches
+            score = (exact_matches * 2) + max(0, expanded_matches)
+
+            chunk_type = chunk.metadata.get("type", "")
+
+            if flags["order"] and chunk_type in {"purchase", "transaction"}:
+                score += 2
+            if flags["today"] and chunk_type == "transaction":
+                score += 3
+            if flags["today"] and chunk_type == "purchase":
+                score += 1
+
             if score > 0:
                 scored.append(RetrievalResult(chunk=chunk, score=score))
 

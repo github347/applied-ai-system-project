@@ -13,6 +13,11 @@ class FakeLLMClient:
         return f"Answer for '{query}' from {first_source}"
 
 
+class UnknownLLMClient:
+    def answer_from_snippets(self, query, snippets):
+        return "I do not know based on the data I have."
+
+
 def test_runtime_retriever_finds_relevant_food_chunk():
     menu = Collection(
         items=[
@@ -54,3 +59,42 @@ def test_snippet_helpers_format_sources():
     src_line = format_sources(results)
     assert src_line.startswith("Sources:")
     assert "food:" in src_line
+
+
+def test_retriever_prioritizes_transaction_for_order_today_query():
+    menu = Collection(
+        items=[
+            Food(id=1, name="Spicy Burger", price=Decimal("6.99"), category="Entree", popularity=84),
+            Food(id=2, name="Large Soda", price=Decimal("2.49"), category="Drinks", popularity=77),
+        ]
+    )
+    customer = Customer(id=1, name="Alice")
+    transaction = Transaction(id=10, customer=customer)
+    transaction.addItem(menu.items[0])
+    transaction.addItem(menu.items[1])
+
+    retriever = RuntimeRetriever()
+    results = retriever.retrieve("what did I order today?", menu, customer, transaction, k=3)
+
+    assert results
+    top_source = results[0].chunk.source
+    assert top_source.startswith("transaction:") or top_source.startswith("purchase:")
+
+
+def test_rag_service_recommendation_fallback_returns_pairing():
+    menu = Collection(
+        items=[
+            Food(id=1, name="Spicy Burger", price=Decimal("6.99"), category="Entree", popularity=84),
+            Food(id=2, name="Fries", price=Decimal("3.49"), category="Sides", popularity=80),
+            Food(id=3, name="Large Soda", price=Decimal("2.49"), category="Drinks", popularity=77),
+        ]
+    )
+    customer = Customer(id=1, name="Alice")
+    tx = Transaction(id=1, customer=customer)
+
+    rag = ByteBitesRAGService(llm_client=UnknownLLMClient(), retriever=RuntimeRetriever())
+    response = rag.ask("what should i get with the spicy burger?", menu, customer, tx)
+
+    assert "I do not know" not in response.answer
+    assert "Spicy Burger" in response.answer
+    assert ("Fries" in response.answer) or ("Large Soda" in response.answer)
