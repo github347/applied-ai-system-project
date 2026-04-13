@@ -36,15 +36,17 @@ The system is shown in [assets/system_diagram.md](assets/system_diagram.md).
 
 3. Set your Gemini API key:
 
-	```bash
-	export GEMINI_API_KEY="your-api-key"
-	```
+In the project root, open .env.example. This file shows the environment variables the system needs:
+
+```GEMINI_API_KEY=your_api_key_here```
+
+Rename the ```.env.example``` file to ```.env.```
+
+Visit the Gemini API key page (https://aistudio.google.com/app/api-keys) and create your own key. Copy the key into your .env file. The starter code will load this automatically using python-dotenv.
 
 4. (Optional) Set model name:
 
-	```bash
-	export GEMINI_MODEL="gemini-2.5-flash"
-	```
+ ```GEMINI_MODEL="gemini-2.5-flash"```
 
 5. Run the app:
 
