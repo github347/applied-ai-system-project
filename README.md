@@ -98,7 +98,7 @@ What worked:
 - Targeted RAG tests passed using the project conda interpreter:
 
   ```bash
-  /Users/djamellhermitus/opt/anaconda3/envs/codepathai/bin/python -m pytest -q test_rag.py
+  -m pytest -q test_rag.py
   ```
 
 - Result: `5 passed in 0.01s`
